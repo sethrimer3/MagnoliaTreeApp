@@ -39,8 +39,9 @@ const therapists = [
 const resources = [
   { icon: '✦', title: 'Guided Breathing', text: 'Choose a calming breathing rhythm and follow its gentle visual guide.', tag: 'Open activity', href: '#breathing' },
   { icon: '◌', title: 'Grounding Exercises', text: 'Reconnect with the present through your senses and surroundings.', tag: 'Open activity', href: '#grounding' },
-  { icon: '☼', title: 'Wellness Library', text: 'Start with sleep, movement, hydration, connection, and time outdoors.', tag: 'Wellness basics' },
-  { icon: '♡', title: 'Between Sessions', text: 'Choose one small supportive action to practice before your next session.', tag: 'Care ideas' },
+  { icon: '☼', title: 'Wellness Library', text: 'Build a small, realistic care plan across five wellness foundations.', tag: 'Open activity', href: '#wellness' },
+  { icon: '♡', title: 'Between Sessions', text: 'Choose and track one supportive action before your next session.', tag: 'Open activity', href: '#between' },
+  { icon: '✎', title: 'My Journal', text: 'Write simple dated entries saved privately on this device.', tag: 'Local journal', href: '#journal' },
 ];
 
 const affirmationFonts = ['Dancing Script', 'Ole', 'Pixelify Sans', 'Playfair Local', 'Shadows Into Light', 'Tangerine', 'Zeyada'];
@@ -65,6 +66,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <img src="./magnoliaTreeLogo.webp" alt="Magnolia Tree Counseling" />
     </a>
     <nav class="nav-right" aria-label="External navigation">
+      <div class="audio-controls"><button id="audio-toggle" aria-label="Mute sounds">Sound on</button><input id="audio-volume" type="range" min="0" max="100" value="35" aria-label="Sound volume" /></div>
       <a href="${mainWebsite}" target="_blank" rel="noreferrer">Main website</a>
       <a class="nav-button" href="${bookingUrl}" target="_blank" rel="noreferrer">Book a session</a>
     </nav>
@@ -146,11 +148,15 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div class="grounding-heading"><p class="eyebrow">Grounding & Calm</p><h2>Come back to the present.</h2><p>Choose a gentle practice. There is no need to rush or do it perfectly.</p></div>
       <div class="grounding-grid">
         <article class="grounding-card sensory-card"><span>5 · 4 · 3 · 2 · 1</span><h3 id="grounding-title">Notice 5 things you can see.</h3><p id="grounding-copy">Look around slowly. Let your eyes rest on shapes, colors, light, and small details.</p><button id="grounding-next">I noticed them</button></article>
-        <article class="grounding-card"><span>Feet on the Floor</span><h3>Feel the support beneath you.</h3><p>Press both feet gently into the floor. Notice its firmness, temperature, and the way it holds your weight.</p></article>
-        <article class="grounding-card"><span>Name the Room</span><h3>Describe where you are.</h3><p>Quietly name the room, the date, and three objects nearby. Remind yourself that you are here, now.</p></article>
-        <article class="grounding-card"><span>Temperature Reset</span><h3>Notice a cool sensation.</h3><p>Hold a cool drink, wash your hands, or notice fresh air. Follow the sensation for a few calm breaths.</p></article>
+        <article class="grounding-card"><span>Feet on the Floor</span><h3>Feel the support beneath you.</h3><p>Press both feet gently into the floor. Notice its firmness, temperature, and the way it holds your weight.</p><button data-grounding-timer="30">Begin 30 seconds</button></article>
+        <article class="grounding-card"><span>Name the Room</span><h3>Describe where you are.</h3><p>Quietly name the room, the date, and three objects nearby. Remind yourself that you are here, now.</p><button data-grounding-timer="45">Begin 45 seconds</button></article>
+        <article class="grounding-card"><span>Temperature Reset</span><h3>Notice a cool sensation.</h3><p>Hold a cool drink, wash your hands, or notice fresh air. Follow the sensation for a few calm breaths.</p><button data-grounding-timer="60">Begin 60 seconds</button></article>
       </div>
     </section>
+
+    <section class="resource-activity page-view" data-page="wellness"><div class="activity-heading"><p class="eyebrow">Wellness Library</p><h2>Build a gentle care plan.</h2><p>Select realistic actions for today. Your choices save on this device.</p></div><div class="wellness-grid" id="wellness-grid">${['Drink a glass of water','Step outside for five minutes','Stretch or move gently','Connect with someone safe','Prepare for restful sleep','Eat something nourishing'].map(item=>`<label class="check-card"><input type="checkbox" data-wellness="${item}"><span>${item}</span></label>`).join('')}</div></section>
+    <section class="resource-activity page-view" data-page="between"><div class="activity-heading"><p class="eyebrow">Between Sessions</p><h2>One small step is enough.</h2><p>Choose a practice and mark it complete when it feels right.</p></div><div class="between-grid" id="between-grid">${['Write down one feeling','Practice a boundary','Notice one unhelpful thought','Do one comforting activity','Bring one question to therapy','Celebrate one small win'].map(item=>`<button data-between="${item}"><strong>${item}</strong><span>Tap to mark complete</span></button>`).join('')}</div></section>
+    <section class="resource-activity page-view" data-page="journal"><div class="activity-heading"><p class="eyebrow">Private on-device journal</p><h2>Leave yourself a note.</h2><p>Entries stay in this browser on this device.</p></div><form id="journal-form" class="journal-form"><input id="journal-title" maxlength="60" placeholder="A short title" aria-label="Journal entry title"><textarea id="journal-entry" maxlength="1200" placeholder="What is on your mind?" required aria-label="Journal entry"></textarea><button>Save note</button></form><div id="journal-notes" class="journal-notes"></div></section>
 
     <section class="games-section page-view" id="games" data-page="games">
       <div class="games-copy reveal">
@@ -216,21 +222,25 @@ const audioPaths={
   select:'./SFX/menu_selection.mp3',selectAlt:'./SFX/menu_selection_alt.mp3',page:'./SFX/page_turn.mp3',
   notes:['./SFX/note_A.mp3','./SFX/note_B.mp3','./SFX/note_D%23.mp3','./SFX/note_F%23.mp3','./SFX/note_G.mp3'],
 };
-let audioUnlocked=false,currentAmbience='',ambienceTimer=0;
+let audioUnlocked=false,currentAmbience='',ambienceTimer=0,audioMuted=localStorage.getItem('magnolia-muted')==='true',masterVolume=Number(localStorage.getItem('magnolia-volume')??.35);
 const ambienceLayers=[new Audio(),new Audio()];
 ambienceLayers.forEach(audio=>{audio.preload='auto';audio.volume=0});
 const fadeAudio=(audio:HTMLAudioElement,target:number,duration=1500)=>{const start=audio.volume,startTime=performance.now();const step=(time:number)=>{const progress=Math.min(1,(time-startTime)/duration);audio.volume=start+(target-start)*progress;if(progress<1)requestAnimationFrame(step);else if(target===0){audio.pause();audio.currentTime=0}};requestAnimationFrame(step)};
-const scheduleLoop=(audio:HTMLAudioElement,path:string,other:HTMLAudioElement)=>{clearTimeout(ambienceTimer);const delay=Math.max(1000,(audio.duration-3)*1000);ambienceTimer=window.setTimeout(()=>{if(currentAmbience!==path)return;other.src=path;other.currentTime=0;other.play().catch(()=>{});fadeAudio(other,.075,2800);fadeAudio(audio,0,2800);scheduleLoop(other,path,audio)},delay)};
-const setAmbience=(path='')=>{if(currentAmbience===path)return;currentAmbience=path;clearTimeout(ambienceTimer);ambienceLayers.forEach(audio=>fadeAudio(audio,0,1300));if(!path||!audioUnlocked)return;const next=ambienceLayers.find(audio=>audio.paused)||ambienceLayers[0];next.src=path;next.currentTime=0;next.play().then(()=>{fadeAudio(next,.075,1800);next.addEventListener('loadedmetadata',()=>scheduleLoop(next,path,ambienceLayers.find(audio=>audio!==next)!),{once:true});if(next.duration)scheduleLoop(next,path,ambienceLayers.find(audio=>audio!==next)!)}).catch(()=>{})};
-const playSfx=(path:string,volume=.08)=>{if(!audioUnlocked)return;const audio=new Audio(path);audio.volume=volume;audio.play().catch(()=>{})};
+const scheduleLoop=(audio:HTMLAudioElement,path:string,other:HTMLAudioElement)=>{clearTimeout(ambienceTimer);const delay=Math.max(1000,(audio.duration-3)*1000);ambienceTimer=window.setTimeout(()=>{if(currentAmbience!==path)return;other.src=path;other.currentTime=0;other.play().catch(()=>{});fadeAudio(other,audioMuted?0:.2*masterVolume,2800);fadeAudio(audio,0,2800);scheduleLoop(other,path,audio)},delay)};
+const setAmbience=(path='')=>{if(currentAmbience===path)return;currentAmbience=path;clearTimeout(ambienceTimer);ambienceLayers.forEach(audio=>fadeAudio(audio,0,1300));if(!path||!audioUnlocked||audioMuted)return;const next=ambienceLayers.find(audio=>audio.paused)||ambienceLayers[0];next.src=path;next.currentTime=0;next.play().then(()=>{fadeAudio(next,.2*masterVolume,1800);next.addEventListener('loadedmetadata',()=>scheduleLoop(next,path,ambienceLayers.find(audio=>audio!==next)!),{once:true});if(next.duration)scheduleLoop(next,path,ambienceLayers.find(audio=>audio!==next)!)}).catch(()=>{})};
+const playSfx=(path:string,volume=.08)=>{if(!audioUnlocked||audioMuted)return;const audio=new Audio(path);audio.volume=volume*masterVolume;audio.play().catch(()=>{})};
 const ambienceForPage=(page:string)=>page==='games'?audioPaths.games:(page==='home'||page==='breathing'?audioPaths.birds:'');
 const unlockAudio=()=>{if(audioUnlocked)return;audioUnlocked=true;currentAmbience='';setAmbience(ambienceForPage(location.hash.slice(1)||'home'))};
 window.addEventListener('pointerdown',unlockAudio,{once:true});
 window.addEventListener('keydown',unlockAudio,{once:true});
+const audioToggle=document.querySelector<HTMLButtonElement>('#audio-toggle')!,audioVolume=document.querySelector<HTMLInputElement>('#audio-volume')!;
+audioVolume.value=String(Math.round(masterVolume*100));audioToggle.textContent=audioMuted?'Sound off':'Sound on';
+audioToggle.addEventListener('click',()=>{audioMuted=!audioMuted;localStorage.setItem('magnolia-muted',String(audioMuted));audioToggle.textContent=audioMuted?'Sound off':'Sound on';currentAmbience='';setAmbience(ambienceForPage(location.hash.slice(1)||'home'))});
+audioVolume.addEventListener('input',()=>{masterVolume=Number(audioVolume.value)/100;localStorage.setItem('magnolia-volume',String(masterVolume));ambienceLayers.forEach(audio=>{if(!audio.paused)audio.volume=.2*masterVolume})});
 
 const showPage = () => {
   const page = location.hash.slice(1) || 'home';
-  const validPage = ['home', 'resources', 'breathing', 'grounding', 'games', 'therapists', 'support'].includes(page) ? page : 'home';
+  const validPage = ['home', 'resources', 'breathing', 'grounding', 'wellness', 'between', 'journal', 'games', 'therapists', 'support'].includes(page) ? page : 'home';
   document.querySelectorAll<HTMLElement>('.page-view').forEach((section) => {
     section.hidden = section.dataset.page !== validPage;
   });
@@ -282,6 +292,18 @@ const groundingSteps=[
 ];
 let groundingStep=0;
 document.querySelector('#grounding-next')!.addEventListener('click',()=>{groundingStep=(groundingStep+1)%groundingSteps.length;document.querySelector('#grounding-title')!.textContent=groundingSteps[groundingStep][0];document.querySelector('#grounding-copy')!.textContent=groundingSteps[groundingStep][1];playSfx(audioPaths.notes[groundingStep%audioPaths.notes.length],.035)});
+document.querySelectorAll<HTMLButtonElement>('[data-grounding-timer]').forEach(button=>button.addEventListener('click',()=>{let remaining=Number(button.dataset.groundingTimer);button.disabled=true;const original=button.textContent!;button.textContent=`${remaining} seconds`;const timer=window.setInterval(()=>{remaining--;button.textContent=remaining?`${remaining} seconds`:'Complete';if(!remaining){clearInterval(timer);button.disabled=false;window.setTimeout(()=>button.textContent=original,1500);playSfx(audioPaths.notes[4],.04)}},1000)}));
+
+const readList=(key:string)=>JSON.parse(localStorage.getItem(key)??'[]') as string[];
+let wellnessDone=readList('magnolia-wellness'),betweenDone=readList('magnolia-between');
+document.querySelectorAll<HTMLInputElement>('[data-wellness]').forEach(input=>{input.checked=wellnessDone.includes(input.dataset.wellness!);input.addEventListener('change',()=>{wellnessDone=input.checked?[...new Set([...wellnessDone,input.dataset.wellness!])]:wellnessDone.filter(item=>item!==input.dataset.wellness);localStorage.setItem('magnolia-wellness',JSON.stringify(wellnessDone))})});
+document.querySelectorAll<HTMLButtonElement>('[data-between]').forEach(button=>{const item=button.dataset.between!;button.classList.toggle('complete',betweenDone.includes(item));button.addEventListener('click',()=>{button.classList.toggle('complete');betweenDone=button.classList.contains('complete')?[...new Set([...betweenDone,item])]:betweenDone.filter(value=>value!==item);localStorage.setItem('magnolia-between',JSON.stringify(betweenDone))})});
+type JournalEntry={id:number;title:string;text:string;date:string};
+let journalEntries=JSON.parse(localStorage.getItem('magnolia-journal')??'[]') as JournalEntry[];
+const journalNotes=document.querySelector('#journal-notes')!;
+const renderJournal=()=>{journalNotes.innerHTML='';journalEntries.forEach(entry=>{const note=document.createElement('article');note.className='journal-note';const date=document.createElement('time');date.textContent=entry.date;const title=document.createElement('h3');title.textContent=entry.title||'Untitled note';const text=document.createElement('p');text.textContent=entry.text;const remove=document.createElement('button');remove.textContent='Delete';remove.addEventListener('click',()=>{journalEntries=journalEntries.filter(item=>item.id!==entry.id);localStorage.setItem('magnolia-journal',JSON.stringify(journalEntries));renderJournal()});note.append(date,title,text,remove);journalNotes.append(note)})};
+document.querySelector<HTMLFormElement>('#journal-form')!.addEventListener('submit',event=>{event.preventDefault();const title=document.querySelector<HTMLInputElement>('#journal-title')!,text=document.querySelector<HTMLTextAreaElement>('#journal-entry')!;journalEntries.unshift({id:Date.now(),title:title.value.trim(),text:text.value.trim(),date:new Date().toLocaleString()});localStorage.setItem('magnolia-journal',JSON.stringify(journalEntries));title.value='';text.value='';renderJournal()});
+renderJournal();
 
 const observer = new IntersectionObserver((entries) => {
   entries.forEach((entry) => entry.isIntersecting && entry.target.classList.add('visible'));
@@ -323,7 +345,7 @@ const collides=(candidate=piece)=>candidate.shape.some((row,y)=>row.some((value,
 const newPiece=()=>{const shape=shapes[Math.floor(Math.random()*shapes.length)];piece={shape,x:Math.floor((COLS-shape[0].length)/2),y:0};if(collides())endGame()};
 const drawLeaf=(x:number,y:number,value:number)=>{context.save();context.translate(x*SIZE+SIZE/2,y*SIZE+SIZE/2);context.rotate(((value%4)-1.5)*.18);context.fillStyle=leafColors[value];context.beginPath();if(value%4===0){context.moveTo(-11,10);context.quadraticCurveTo(-4,-15,11,-11);context.quadraticCurveTo(15,4,-11,10)}else if(value%4===1){context.moveTo(-12,9);context.bezierCurveTo(-15,-7,-4,-15,10,-12);context.bezierCurveTo(15,-2,7,14,-12,9)}else if(value%4===2){context.moveTo(-11,11);context.lineTo(-8,-3);context.lineTo(-13,-7);context.lineTo(-5,-8);context.lineTo(0,-15);context.lineTo(4,-8);context.lineTo(12,-8);context.lineTo(7,-2);context.lineTo(11,10);context.lineTo(0,6);context.closePath()}else{context.moveTo(-11,10);context.quadraticCurveTo(-14,0,-8,-10);context.quadraticCurveTo(0,-16,11,-10);context.quadraticCurveTo(14,2,5,10);context.quadraticCurveTo(-2,14,-11,10)}context.fill();context.strokeStyle='rgba(255,255,255,.6)';context.lineWidth=1.2;context.beginPath();context.moveTo(-8,9);context.lineTo(8,-9);context.stroke();if(value%4===2){context.beginPath();context.moveTo(-2,3);context.lineTo(-8,-2);context.moveTo(2,-2);context.lineTo(8,-5);context.stroke()}context.restore()};
 const drawGame=()=>{context.clearRect(0,0,canvas.width,canvas.height);context.fillStyle='#f4f7f0';context.fillRect(0,0,canvas.width,canvas.height);context.strokeStyle='rgba(23,77,42,.06)';for(let x=1;x<COLS;x++){context.beginPath();context.moveTo(x*SIZE,0);context.lineTo(x*SIZE,canvas.height);context.stroke()}for(let y=1;y<ROWS;y++){context.beginPath();context.moveTo(0,y*SIZE);context.lineTo(canvas.width,y*SIZE);context.stroke()}board.forEach((row,y)=>row.forEach((value,x)=>value&&drawLeaf(x,y,value)));piece.shape.forEach((row,y)=>row.forEach((value,x)=>value&&drawLeaf(piece.x+x,piece.y+y,value)))};
-const updateStats=()=>{document.querySelector('#leaf-score')!.textContent=String(score);document.querySelector('#leaf-lines')!.textContent=String(lines);document.querySelector('#leaf-level')!.textContent=String(Math.floor(lines/8)+1)};
+const updateStats=()=>{document.querySelector('#leaf-score')!.textContent=String(score);document.querySelector('#leaf-lines')!.textContent=String(lines);document.querySelector('#leaf-level')!.textContent=String(Math.floor(lines/8)+1);localStorage.setItem('magnolia-leaf-best',String(Math.max(score,Number(localStorage.getItem('magnolia-leaf-best')??0))))};
 const settle=()=>{piece.shape.forEach((row,y)=>row.forEach((value,x)=>{if(value)board[piece.y+y][piece.x+x]=value}));addJarDrops(piece.shape.flat().filter(Boolean).length);let cleared=0;board=board.filter(row=>{if(row.every(Boolean)){cleared++;return false}return true});while(board.length<ROWS)board.unshift(Array(COLS).fill(0));lines+=cleared;score+=[0,100,300,600,1000][cleared];playSfx(audioPaths.notes[cleared?4:Math.floor(Math.random()*4)],cleared?.065:.025);updateStats();newPiece()};
 const move=(dx:number)=>{const next={...piece,x:piece.x+dx};if(!collides(next))piece=next;drawGame()};
 const rotate=()=>{const shape=piece.shape[0].map((_,i)=>piece.shape.map(row=>row[i]).reverse());const next={...piece,shape};if(!collides(next))piece=next;drawGame()};
@@ -385,7 +407,7 @@ const matchBoard=document.querySelector('#match-board')!,MATCH_SIZE=8,matchIcons
 let matchCells:number[]=[],selectedMatch=-1,matchScore=0;
 const findMatches=()=>{const found=new Set<number>();for(let row=0;row<MATCH_SIZE;row++)for(let col=0;col<MATCH_SIZE;col++){const index=row*MATCH_SIZE+col,value=matchCells[index];if(col<MATCH_SIZE-2&&value===matchCells[index+1]&&value===matchCells[index+2]){found.add(index);found.add(index+1);found.add(index+2)}if(row<MATCH_SIZE-2&&value===matchCells[index+MATCH_SIZE]&&value===matchCells[index+MATCH_SIZE*2]){found.add(index);found.add(index+MATCH_SIZE);found.add(index+MATCH_SIZE*2)}}return found};
 const refillMatches=()=>{for(let col=0;col<MATCH_SIZE;col++){const values=[];for(let row=MATCH_SIZE-1;row>=0;row--){const value=matchCells[row*MATCH_SIZE+col];if(value>=0)values.push(value)}for(let row=MATCH_SIZE-1;row>=0;row--)matchCells[row*MATCH_SIZE+col]=values[MATCH_SIZE-1-row]??Math.floor(Math.random()*matchIcons.length)}};
-const resolveMatches=()=>{const matches=findMatches();if(!matches.size)return false;matches.forEach(index=>matchCells[index]=-1);matchScore+=matches.size*10;document.querySelector('#match-score')!.textContent=String(matchScore);playSfx(audioPaths.notes[Math.min(4,Math.floor(matches.size/3))],.045);refillMatches();window.setTimeout(()=>{renderMatches();resolveMatches()},180);return true};
+const resolveMatches=()=>{const matches=findMatches();if(!matches.size)return false;matches.forEach(index=>matchCells[index]=-1);matchScore+=matches.size*10;document.querySelector('#match-score')!.textContent=String(matchScore);localStorage.setItem('magnolia-match-best',String(Math.max(matchScore,Number(localStorage.getItem('magnolia-match-best')??0))));playSfx(audioPaths.notes[Math.min(4,Math.floor(matches.size/3))],.045);refillMatches();window.setTimeout(()=>{renderMatches();resolveMatches()},180);return true};
 const renderMatches=()=>{matchBoard.innerHTML=matchCells.map((value,index)=>`<button class="match-piece piece-${value}${selectedMatch===index?' selected':''}" data-match="${index}" aria-label="Match piece">${matchIcons[value]}</button>`).join('')};
 const resetMatches=()=>{matchScore=0;document.querySelector('#match-score')!.textContent='0';do{matchCells=Array.from({length:MATCH_SIZE*MATCH_SIZE},()=>Math.floor(Math.random()*matchIcons.length))}while(findMatches().size);selectedMatch=-1;renderMatches()};
 matchBoard.addEventListener('click',event=>{const button=(event.target as HTMLElement).closest<HTMLButtonElement>('[data-match]');if(!button)return;const index=Number(button.dataset.match);if(selectedMatch<0){selectedMatch=index;renderMatches();return}const adjacent=Math.abs(index-selectedMatch)===MATCH_SIZE||(Math.abs(index-selectedMatch)===1&&Math.floor(index/MATCH_SIZE)===Math.floor(selectedMatch/MATCH_SIZE));if(adjacent){[matchCells[index],matchCells[selectedMatch]]=[matchCells[selectedMatch],matchCells[index]];if(!resolveMatches())[matchCells[index],matchCells[selectedMatch]]=[matchCells[selectedMatch],matchCells[index]]}selectedMatch=-1;renderMatches()});
