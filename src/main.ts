@@ -38,7 +38,7 @@ const therapists = [
 
 const resources = [
   { icon: '✦', title: 'Guided Breathing', text: 'Choose a calming breathing rhythm and follow its gentle visual guide.', tag: 'Open activity', href: '#breathing' },
-  { icon: '◌', title: 'Reflection Tools', text: 'Pause and name one feeling, one need, and one kind next step.', tag: 'Quick practice' },
+  { icon: '◌', title: 'Grounding Exercises', text: 'Reconnect with the present through your senses and surroundings.', tag: 'Open activity', href: '#grounding' },
   { icon: '☼', title: 'Wellness Library', text: 'Start with sleep, movement, hydration, connection, and time outdoors.', tag: 'Wellness basics' },
   { icon: '♡', title: 'Between Sessions', text: 'Choose one small supportive action to practice before your next session.', tag: 'Care ideas' },
 ];
@@ -142,6 +142,16 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </div>
     </section>
 
+    <section class="grounding-section page-view" data-page="grounding">
+      <div class="grounding-heading"><p class="eyebrow">Grounding & Calm</p><h2>Come back to the present.</h2><p>Choose a gentle practice. There is no need to rush or do it perfectly.</p></div>
+      <div class="grounding-grid">
+        <article class="grounding-card sensory-card"><span>5 · 4 · 3 · 2 · 1</span><h3 id="grounding-title">Notice 5 things you can see.</h3><p id="grounding-copy">Look around slowly. Let your eyes rest on shapes, colors, light, and small details.</p><button id="grounding-next">I noticed them</button></article>
+        <article class="grounding-card"><span>Feet on the Floor</span><h3>Feel the support beneath you.</h3><p>Press both feet gently into the floor. Notice its firmness, temperature, and the way it holds your weight.</p></article>
+        <article class="grounding-card"><span>Name the Room</span><h3>Describe where you are.</h3><p>Quietly name the room, the date, and three objects nearby. Remind yourself that you are here, now.</p></article>
+        <article class="grounding-card"><span>Temperature Reset</span><h3>Notice a cool sensation.</h3><p>Hold a cool drink, wash your hands, or notice fresh air. Follow the sensation for a few calm breaths.</p></article>
+      </div>
+    </section>
+
     <section class="games-section page-view" id="games" data-page="games">
       <div class="games-copy reveal">
         <p class="eyebrow">Mindfulness games</p>
@@ -174,6 +184,11 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </div>
     </section>
 
+    <section class="match-section page-view" data-page="games">
+      <div class="match-copy"><p class="eyebrow">Mindfulness games · Gentle Match</p><h2>Match, clear,<br><em>and settle.</em></h2><p>Select two neighboring pieces to swap them. Match three or more to clear a quiet little space.</p><div class="match-score">Calm points <strong id="match-score">0</strong></div><button id="match-reset">New garden</button></div>
+      <div class="match-card"><div class="match-board" id="match-board" aria-label="Gentle match-three game"></div></div>
+    </section>
+
     <section class="support reveal page-view" id="support" data-page="support">
       <div><p class="eyebrow">Ready when you are</p><h2>You don't have to navigate it alone.</h2><p>Whether you're returning or taking your first step, we're here to help you find the support that feels right.</p></div>
       <div class="support-links">
@@ -196,12 +211,31 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   </footer>
 `;
 
+const audioPaths={
+  birds:'./MUSIC/birdSounds.mp3',games:'./MUSIC/gentleGameMusic.mp3',
+  select:'./SFX/menu_selection.mp3',selectAlt:'./SFX/menu_selection_alt.mp3',page:'./SFX/page_turn.mp3',
+  notes:['./SFX/note_A.mp3','./SFX/note_B.mp3','./SFX/note_D%23.mp3','./SFX/note_F%23.mp3','./SFX/note_G.mp3'],
+};
+let audioUnlocked=false,currentAmbience='',ambienceTimer=0;
+const ambienceLayers=[new Audio(),new Audio()];
+ambienceLayers.forEach(audio=>{audio.preload='auto';audio.volume=0});
+const fadeAudio=(audio:HTMLAudioElement,target:number,duration=1500)=>{const start=audio.volume,startTime=performance.now();const step=(time:number)=>{const progress=Math.min(1,(time-startTime)/duration);audio.volume=start+(target-start)*progress;if(progress<1)requestAnimationFrame(step);else if(target===0){audio.pause();audio.currentTime=0}};requestAnimationFrame(step)};
+const scheduleLoop=(audio:HTMLAudioElement,path:string,other:HTMLAudioElement)=>{clearTimeout(ambienceTimer);const delay=Math.max(1000,(audio.duration-3)*1000);ambienceTimer=window.setTimeout(()=>{if(currentAmbience!==path)return;other.src=path;other.currentTime=0;other.play().catch(()=>{});fadeAudio(other,.075,2800);fadeAudio(audio,0,2800);scheduleLoop(other,path,audio)},delay)};
+const setAmbience=(path='')=>{if(currentAmbience===path)return;currentAmbience=path;clearTimeout(ambienceTimer);ambienceLayers.forEach(audio=>fadeAudio(audio,0,1300));if(!path||!audioUnlocked)return;const next=ambienceLayers.find(audio=>audio.paused)||ambienceLayers[0];next.src=path;next.currentTime=0;next.play().then(()=>{fadeAudio(next,.075,1800);next.addEventListener('loadedmetadata',()=>scheduleLoop(next,path,ambienceLayers.find(audio=>audio!==next)!),{once:true});if(next.duration)scheduleLoop(next,path,ambienceLayers.find(audio=>audio!==next)!)}).catch(()=>{})};
+const playSfx=(path:string,volume=.08)=>{if(!audioUnlocked)return;const audio=new Audio(path);audio.volume=volume;audio.play().catch(()=>{})};
+const ambienceForPage=(page:string)=>page==='games'?audioPaths.games:(page==='home'||page==='breathing'?audioPaths.birds:'');
+const unlockAudio=()=>{if(audioUnlocked)return;audioUnlocked=true;currentAmbience='';setAmbience(ambienceForPage(location.hash.slice(1)||'home'))};
+window.addEventListener('pointerdown',unlockAudio,{once:true});
+window.addEventListener('keydown',unlockAudio,{once:true});
+
 const showPage = () => {
   const page = location.hash.slice(1) || 'home';
-  const validPage = ['home', 'resources', 'breathing', 'games', 'therapists', 'support'].includes(page) ? page : 'home';
+  const validPage = ['home', 'resources', 'breathing', 'grounding', 'games', 'therapists', 'support'].includes(page) ? page : 'home';
   document.querySelectorAll<HTMLElement>('.page-view').forEach((section) => {
     section.hidden = section.dataset.page !== validPage;
   });
+  setAmbience(ambienceForPage(validPage));
+  if(audioUnlocked)playSfx(audioPaths.page,.045);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 window.addEventListener('hashchange', showPage);
@@ -222,6 +256,7 @@ const highlightAffirmations = () => {
 };
 highlightAffirmations();
 window.setInterval(highlightAffirmations, 3200);
+document.querySelectorAll<HTMLElement>('a,button').forEach(element=>element.addEventListener('click',()=>playSfx(Math.random()>.5?audioPaths.select:audioPaths.selectAlt,.04)));
 
 const breathingExercises={
   box:{name:'Box Breathing',phases:[['Inhale',4],['Hold',4],['Exhale',4],['Hold',4]]},
@@ -231,11 +266,22 @@ const breathingExercises={
 let breathType:keyof typeof breathingExercises='box',breathPhase=0,breathRemaining=4,breathTimer=0,breathing=false;
 const breathName=document.querySelector('#breath-name')!,breathPrompt=document.querySelector('#breath-prompt')!,breathCount=document.querySelector('#breath-count')!,breathToggle=document.querySelector<HTMLButtonElement>('#breath-toggle')!,breathingVisual=document.querySelector('#breathing-visual')!;
 const renderBreath=()=>{const exercise=breathingExercises[breathType],phase=exercise.phases[breathPhase];breathName.textContent=exercise.name;breathPrompt.textContent=phase[0];breathCount.textContent=String(breathRemaining);breathingVisual.className=`breathing-visual ${breathType} ${phase[0].toLowerCase()}`};
-const tickBreath=()=>{breathRemaining--;if(breathRemaining<=0){breathPhase=(breathPhase+1)%breathingExercises[breathType].phases.length;breathRemaining=breathingExercises[breathType].phases[breathPhase][1]}renderBreath()};
+const tickBreath=()=>{breathRemaining--;if(breathRemaining<=0){breathPhase=(breathPhase+1)%breathingExercises[breathType].phases.length;breathRemaining=breathingExercises[breathType].phases[breathPhase][1];playSfx(audioPaths.notes[breathPhase%audioPaths.notes.length],.035)}renderBreath()};
 document.querySelectorAll<HTMLButtonElement>('[data-breath]').forEach(button=>button.addEventListener('click',()=>{breathType=button.dataset.breath as keyof typeof breathingExercises;breathPhase=0;breathRemaining=breathingExercises[breathType].phases[0][1];document.querySelectorAll('[data-breath]').forEach(item=>item.classList.remove('active'));button.classList.add('active');renderBreath()}));
 document.querySelector<HTMLButtonElement>('[data-breath="box"]')!.classList.add('active');
 breathToggle.addEventListener('click',()=>{breathing=!breathing;breathToggle.textContent=breathing?'Pause':'Begin';clearInterval(breathTimer);if(breathing)breathTimer=window.setInterval(tickBreath,1000)});
 renderBreath();
+
+const groundingSteps=[
+  ['Notice 5 things you can see.','Look around slowly. Let your eyes rest on shapes, colors, light, and small details.'],
+  ['Notice 4 things you can feel.','Notice clothing, the chair, the floor, or the air touching your skin.'],
+  ['Notice 3 things you can hear.','Listen for nearby sounds, distant sounds, and the quiet underneath them.'],
+  ['Notice 2 things you can smell.','Notice the air, your clothing, a drink, or another gentle scent nearby.'],
+  ['Notice 1 thing you can taste.','Notice the taste already present, or take a mindful sip of water.'],
+  ['You are here.','Take one slow breath and notice how it feels to be present in this moment.'],
+];
+let groundingStep=0;
+document.querySelector('#grounding-next')!.addEventListener('click',()=>{groundingStep=(groundingStep+1)%groundingSteps.length;document.querySelector('#grounding-title')!.textContent=groundingSteps[groundingStep][0];document.querySelector('#grounding-copy')!.textContent=groundingSteps[groundingStep][1];playSfx(audioPaths.notes[groundingStep%audioPaths.notes.length],.035)});
 
 const observer = new IntersectionObserver((entries) => {
   entries.forEach((entry) => entry.isIntersecting && entry.target.classList.add('visible'));
@@ -275,10 +321,10 @@ let piece = {shape:shapes[0],x:3,y:0};
 let score=0, lines=0, lastDrop=0, running=false, animation=0;
 const collides=(candidate=piece)=>candidate.shape.some((row,y)=>row.some((value,x)=>value&&(candidate.y+y>=ROWS||candidate.x+x<0||candidate.x+x>=COLS||board[candidate.y+y]?.[candidate.x+x])));
 const newPiece=()=>{const shape=shapes[Math.floor(Math.random()*shapes.length)];piece={shape,x:Math.floor((COLS-shape[0].length)/2),y:0};if(collides())endGame()};
-const drawLeaf=(x:number,y:number,value:number)=>{context.save();context.translate(x*SIZE+SIZE/2,y*SIZE+SIZE/2);context.rotate(((value%4)-1.5)*.18);context.fillStyle=leafColors[value];context.beginPath();context.moveTo(-10,10);context.bezierCurveTo(-15,-8,0,-15,11,-11);context.bezierCurveTo(14,2,6,14,-10,10);context.fill();context.strokeStyle='rgba(255,255,255,.55)';context.lineWidth=1.2;context.beginPath();context.moveTo(-8,9);context.lineTo(9,-9);context.stroke();context.restore()};
+const drawLeaf=(x:number,y:number,value:number)=>{context.save();context.translate(x*SIZE+SIZE/2,y*SIZE+SIZE/2);context.rotate(((value%4)-1.5)*.18);context.fillStyle=leafColors[value];context.beginPath();if(value%4===0){context.moveTo(-11,10);context.quadraticCurveTo(-4,-15,11,-11);context.quadraticCurveTo(15,4,-11,10)}else if(value%4===1){context.moveTo(-12,9);context.bezierCurveTo(-15,-7,-4,-15,10,-12);context.bezierCurveTo(15,-2,7,14,-12,9)}else if(value%4===2){context.moveTo(-11,11);context.lineTo(-8,-3);context.lineTo(-13,-7);context.lineTo(-5,-8);context.lineTo(0,-15);context.lineTo(4,-8);context.lineTo(12,-8);context.lineTo(7,-2);context.lineTo(11,10);context.lineTo(0,6);context.closePath()}else{context.moveTo(-11,10);context.quadraticCurveTo(-14,0,-8,-10);context.quadraticCurveTo(0,-16,11,-10);context.quadraticCurveTo(14,2,5,10);context.quadraticCurveTo(-2,14,-11,10)}context.fill();context.strokeStyle='rgba(255,255,255,.6)';context.lineWidth=1.2;context.beginPath();context.moveTo(-8,9);context.lineTo(8,-9);context.stroke();if(value%4===2){context.beginPath();context.moveTo(-2,3);context.lineTo(-8,-2);context.moveTo(2,-2);context.lineTo(8,-5);context.stroke()}context.restore()};
 const drawGame=()=>{context.clearRect(0,0,canvas.width,canvas.height);context.fillStyle='#f4f7f0';context.fillRect(0,0,canvas.width,canvas.height);context.strokeStyle='rgba(23,77,42,.06)';for(let x=1;x<COLS;x++){context.beginPath();context.moveTo(x*SIZE,0);context.lineTo(x*SIZE,canvas.height);context.stroke()}for(let y=1;y<ROWS;y++){context.beginPath();context.moveTo(0,y*SIZE);context.lineTo(canvas.width,y*SIZE);context.stroke()}board.forEach((row,y)=>row.forEach((value,x)=>value&&drawLeaf(x,y,value)));piece.shape.forEach((row,y)=>row.forEach((value,x)=>value&&drawLeaf(piece.x+x,piece.y+y,value)))};
 const updateStats=()=>{document.querySelector('#leaf-score')!.textContent=String(score);document.querySelector('#leaf-lines')!.textContent=String(lines);document.querySelector('#leaf-level')!.textContent=String(Math.floor(lines/8)+1)};
-const settle=()=>{piece.shape.forEach((row,y)=>row.forEach((value,x)=>{if(value)board[piece.y+y][piece.x+x]=value}));addJarDrops(piece.shape.flat().filter(Boolean).length);let cleared=0;board=board.filter(row=>{if(row.every(Boolean)){cleared++;return false}return true});while(board.length<ROWS)board.unshift(Array(COLS).fill(0));lines+=cleared;score+=[0,100,300,600,1000][cleared];updateStats();newPiece()};
+const settle=()=>{piece.shape.forEach((row,y)=>row.forEach((value,x)=>{if(value)board[piece.y+y][piece.x+x]=value}));addJarDrops(piece.shape.flat().filter(Boolean).length);let cleared=0;board=board.filter(row=>{if(row.every(Boolean)){cleared++;return false}return true});while(board.length<ROWS)board.unshift(Array(COLS).fill(0));lines+=cleared;score+=[0,100,300,600,1000][cleared];playSfx(audioPaths.notes[cleared?4:Math.floor(Math.random()*4)],cleared?.065:.025);updateStats();newPiece()};
 const move=(dx:number)=>{const next={...piece,x:piece.x+dx};if(!collides(next))piece=next;drawGame()};
 const rotate=()=>{const shape=piece.shape[0].map((_,i)=>piece.shape.map(row=>row[i]).reverse());const next={...piece,shape};if(!collides(next))piece=next;drawGame()};
 const drop=()=>{const next={...piece,y:piece.y+1};if(collides(next))settle();else piece=next;drawGame()};
@@ -334,3 +380,14 @@ const sandLoop=()=>{pourSand();for(let pass=0;pass<4;pass++)moveSand();drawSand(
 document.querySelector('#sand-clear')!.addEventListener('click',()=>sand.fill(0));
 document.querySelector('#sand-save')!.addEventListener('click',()=>{const link=document.createElement('a');link.download='my-sand-garden.png';link.href=sandCanvas.toDataURL('image/png');link.click()});
 sandLoop();
+
+const matchBoard=document.querySelector('#match-board')!,MATCH_SIZE=8,matchIcons=['●','◆','✦','♥','▲','✿'];
+let matchCells:number[]=[],selectedMatch=-1,matchScore=0;
+const findMatches=()=>{const found=new Set<number>();for(let row=0;row<MATCH_SIZE;row++)for(let col=0;col<MATCH_SIZE;col++){const index=row*MATCH_SIZE+col,value=matchCells[index];if(col<MATCH_SIZE-2&&value===matchCells[index+1]&&value===matchCells[index+2]){found.add(index);found.add(index+1);found.add(index+2)}if(row<MATCH_SIZE-2&&value===matchCells[index+MATCH_SIZE]&&value===matchCells[index+MATCH_SIZE*2]){found.add(index);found.add(index+MATCH_SIZE);found.add(index+MATCH_SIZE*2)}}return found};
+const refillMatches=()=>{for(let col=0;col<MATCH_SIZE;col++){const values=[];for(let row=MATCH_SIZE-1;row>=0;row--){const value=matchCells[row*MATCH_SIZE+col];if(value>=0)values.push(value)}for(let row=MATCH_SIZE-1;row>=0;row--)matchCells[row*MATCH_SIZE+col]=values[MATCH_SIZE-1-row]??Math.floor(Math.random()*matchIcons.length)}};
+const resolveMatches=()=>{const matches=findMatches();if(!matches.size)return false;matches.forEach(index=>matchCells[index]=-1);matchScore+=matches.size*10;document.querySelector('#match-score')!.textContent=String(matchScore);playSfx(audioPaths.notes[Math.min(4,Math.floor(matches.size/3))],.045);refillMatches();window.setTimeout(()=>{renderMatches();resolveMatches()},180);return true};
+const renderMatches=()=>{matchBoard.innerHTML=matchCells.map((value,index)=>`<button class="match-piece piece-${value}${selectedMatch===index?' selected':''}" data-match="${index}" aria-label="Match piece">${matchIcons[value]}</button>`).join('')};
+const resetMatches=()=>{matchScore=0;document.querySelector('#match-score')!.textContent='0';do{matchCells=Array.from({length:MATCH_SIZE*MATCH_SIZE},()=>Math.floor(Math.random()*matchIcons.length))}while(findMatches().size);selectedMatch=-1;renderMatches()};
+matchBoard.addEventListener('click',event=>{const button=(event.target as HTMLElement).closest<HTMLButtonElement>('[data-match]');if(!button)return;const index=Number(button.dataset.match);if(selectedMatch<0){selectedMatch=index;renderMatches();return}const adjacent=Math.abs(index-selectedMatch)===MATCH_SIZE||(Math.abs(index-selectedMatch)===1&&Math.floor(index/MATCH_SIZE)===Math.floor(selectedMatch/MATCH_SIZE));if(adjacent){[matchCells[index],matchCells[selectedMatch]]=[matchCells[selectedMatch],matchCells[index]];if(!resolveMatches())[matchCells[index],matchCells[selectedMatch]]=[matchCells[selectedMatch],matchCells[index]]}selectedMatch=-1;renderMatches()});
+document.querySelector('#match-reset')!.addEventListener('click',resetMatches);
+resetMatches();
