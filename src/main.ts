@@ -71,7 +71,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   </header>
 
   <main id="top">
-    <section class="hero">
+    <section class="hero page-view" data-page="home">
       <div class="affirmation-background" aria-hidden="true">${affirmationRows}</div>
       <div class="hero-copy reveal">
         <p class="eyebrow">A space for growth and connection</p>
@@ -82,16 +82,19 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
           <a class="button secondary" href="#resources">Explore resources</a>
         </div>
       </div>
-      <div class="hero-art reveal" aria-hidden="true">
-        <div class="sun"></div>
-        <div class="leaf leaf-one"></div><div class="leaf leaf-two"></div>
-        <div class="leaf leaf-three"></div><div class="leaf leaf-four"></div>
-        <div class="flower"><span></span><span></span><span></span><span></span><span></span><i></i></div>
-        <p>Rooted in care.<br><strong>Growing together.</strong></p>
+      <div class="hero-logo reveal">
+        <img src="./magnoliaTreeLogo.webp" alt="Magnolia Tree Counseling" />
       </div>
     </section>
 
-    <section class="therapist-section" id="therapists">
+    <section class="page-menu page-view" data-page="home" aria-label="Explore">
+      <a href="#resources"><span>Resources</span><small>Tools for reflection and support</small></a>
+      <a href="#games"><span>Mindfulness Games</span><small>Quiet, interactive activities</small></a>
+      <a href="#therapists"><span>Meet Our Therapists</span><small>Find someone who feels right</small></a>
+      <a href="#support"><span>Support & Contact</span><small>Connect with Magnolia Tree</small></a>
+    </section>
+
+    <section class="therapist-section page-view" id="therapists" data-page="therapists">
       <div class="therapist-heading reveal">
         <div><p class="eyebrow">Magnolia Tree Therapists</p><h2>Find someone who feels right.</h2></div>
         <p>Our therapists bring different specialties and approaches to care, with one shared goal: helping you feel heard, supported, and able to grow.</p>
@@ -115,7 +118,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <p class="no-results" hidden>No therapists match that search. Try another name or specialty.</p>
     </section>
 
-    <section class="resource-section" id="resources">
+    <section class="resource-section page-view" id="resources" data-page="resources">
       <div class="section-heading reveal">
         <p class="eyebrow">Client resources</p>
         <h2>Support, wherever you are.</h2>
@@ -126,7 +129,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </div>
     </section>
 
-    <section class="games-section" id="games">
+    <section class="games-section page-view" id="games" data-page="games">
       <div class="games-copy reveal">
         <p class="eyebrow">Mindfulness games</p>
         <h2>Leaf by leaf,<br><em>find your flow.</em></h2>
@@ -141,7 +144,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </div>
     </section>
 
-    <section class="sand-section">
+    <section class="sand-section page-view" data-page="games">
       <div class="sand-heading reveal">
         <div><p class="eyebrow">Mindfulness games · Sand Garden</p><h2>Pour color.<br><em>Let gravity create.</em></h2></div>
         <p>Press and hold anywhere in the garden to pour a gentle stream of sand. Move slowly, layer colors, and watch each grain find its resting place.</p>
@@ -157,7 +160,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </div>
     </section>
 
-    <section class="support reveal" id="support">
+    <section class="support reveal page-view" id="support" data-page="support">
       <div><p class="eyebrow">Ready when you are</p><h2>You don't have to navigate it alone.</h2><p>Whether you're returning or taking your first step, we're here to help you find the support that feels right.</p></div>
       <div class="support-links">
         <a href="${bookingUrl}" target="_blank" rel="noreferrer"><span>01</span><strong>Book an appointment</strong><i>→</i></a>
@@ -178,6 +181,33 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <small>© ${new Date().getFullYear()} Magnolia Tree Counseling</small>
   </footer>
 `;
+
+const showPage = () => {
+  const page = location.hash.slice(1) || 'home';
+  const validPage = ['home', 'resources', 'games', 'therapists', 'support'].includes(page) ? page : 'home';
+  document.querySelectorAll<HTMLElement>('.page-view').forEach((section) => {
+    section.hidden = section.dataset.page !== validPage;
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+window.addEventListener('hashchange', showPage);
+showPage();
+
+const affirmationElements = [...document.querySelectorAll<HTMLElement>('.affirmation-track span')];
+const highlightAffirmations = () => {
+  affirmationElements.forEach((element) => element.classList.remove('gold'));
+  const visible = affirmationElements.filter((element) => {
+    const rect = element.getBoundingClientRect();
+    return rect.right > 0 && rect.left < window.innerWidth && rect.bottom > 0 && rect.top < window.innerHeight;
+  });
+  const count = Math.min(visible.length, Math.random() < 0.65 ? 1 : 2);
+  for (let index = 0; index < count; index++) {
+    const choice = visible.splice(Math.floor(Math.random() * visible.length), 1)[0];
+    choice?.classList.add('gold');
+  }
+};
+highlightAffirmations();
+window.setInterval(highlightAffirmations, 3200);
 
 const observer = new IntersectionObserver((entries) => {
   entries.forEach((entry) => entry.isIntersecting && entry.target.classList.add('visible'));
