@@ -135,12 +135,11 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <h2>Leaf by leaf,<br><em>find your flow.</em></h2>
         <p>Give your mind a gentle place to focus. Arrange the falling leaves, clear each row, and let everything else be quiet for a moment.</p>
         <div class="game-stat-row"><div><span>Score</span><strong id="leaf-score">0</strong></div><div><span>Lines</span><strong id="leaf-lines">0</strong></div><div><span>Level</span><strong id="leaf-level">1</strong></div></div>
-        <p class="game-note">Use arrow keys to move, up to rotate, and space to settle a piece.</p>
+        <p class="game-note">Swipe left or right to move, swipe up to rotate, and swipe down to settle the piece.</p>
       </div>
       <div class="leaf-game reveal">
-        <div class="game-top"><span>Leaf fall</span><button id="leaf-start">Begin</button></div>
-        <div class="canvas-wrap"><canvas id="leaf-tetris" width="300" height="600" aria-label="Leaf fall block game"></canvas><div class="game-message" id="game-message">Take a breath.<br><small>Press Begin when you're ready.</small></div></div>
-        <div class="touch-controls" aria-label="Game controls"><button data-move="-1">←</button><button data-rotate="true">↻</button><button data-move="1">→</button><button data-drop="true">↓</button></div>
+        <div class="game-top"><span>Leaf fall</span></div>
+        <div class="canvas-wrap"><button id="leaf-start">Restart</button><canvas id="leaf-tetris" width="300" height="600" aria-label="Leaf fall block game. Swipe to control pieces."></canvas><div class="game-message" id="game-message">Take a breath.<br><small>Tap restart when you're ready.</small></div></div>
       </div>
     </section>
 
@@ -151,7 +150,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </div>
       <div class="sand-studio reveal">
         <div class="sand-toolbar">
-          <div><span>Palette</span><div class="sand-colors" id="sand-colors"></div></div>
+          <div class="sand-palette"><span>Solid colors</span><div class="sand-colors" id="sand-colors"></div><span>Living gradients</span><div class="sand-colors gradient-colors" id="gradient-colors"></div></div>
           <label><span>Flow</span><input id="sand-flow" type="range" min="1" max="9" value="4" /></label>
           <div class="sand-actions"><button id="sand-clear">Clear</button><button id="sand-save">Save art</button></div>
         </div>
@@ -260,27 +259,42 @@ const loop=(time:number)=>{if(!running)return;if(time-lastDrop>Math.max(180,700-
 const startGame=()=>{board=Array.from({length:ROWS},()=>Array(COLS).fill(0));score=0;lines=0;running=true;lastDrop=performance.now();newPiece();updateStats();drawGame();document.querySelector('#game-message')!.classList.add('hidden');document.querySelector('#leaf-start')!.textContent='Restart';cancelAnimationFrame(animation);animation=requestAnimationFrame(loop)};
 document.querySelector('#leaf-start')!.addEventListener('click',startGame);
 window.addEventListener('keydown',event=>{if(!running)return;if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' '].includes(event.key))event.preventDefault();if(event.key==='ArrowLeft')move(-1);if(event.key==='ArrowRight')move(1);if(event.key==='ArrowDown')drop();if(event.key==='ArrowUp')rotate();if(event.key===' ')hardDrop()});
-document.querySelectorAll<HTMLButtonElement>('.touch-controls button').forEach(button=>button.addEventListener('click',()=>{if(!running)return;if(button.dataset.move)move(Number(button.dataset.move));if(button.dataset.rotate)rotate();if(button.dataset.drop)drop()}));
+let swipeStartX=0,swipeStartY=0;
+canvas.addEventListener('pointerdown',event=>{swipeStartX=event.clientX;swipeStartY=event.clientY;canvas.setPointerCapture(event.pointerId)});
+canvas.addEventListener('pointerup',event=>{if(!running)return;const dx=event.clientX-swipeStartX,dy=event.clientY-swipeStartY;if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;if(Math.abs(dx)>Math.abs(dy))move(dx>0?1:-1);else if(dy>0)hardDrop();else rotate()});
 drawGame();
 
 const sandCanvas = document.querySelector<HTMLCanvasElement>('#sand-canvas')!;
 const sandContext = sandCanvas.getContext('2d')!;
-const SW = 300, SH = 187;
-const sand = new Uint8Array(SW * SH);
+const SW = 600, SH = 374;
+const sand = new Uint32Array(SW * SH);
 const sandPalette = ['#102f20','#315d3b','#6f9268','#b9a96b','#d6b393','#a87869','#e7d7bd','#f4eee1'];
-let sandColor = 4, sandFlow = 4, pouring = false, sandX = SW / 2, sandY = 10;
+const sandGradients = [
+  ['#FDEA9D','#d6b393','#a87869','#FDEA9D'],
+  ['#315d3b','#79a37e','#e7d7bd','#315d3b'],
+  ['#9c7063','#f0cfc2','#b9a96b','#9c7063'],
+];
+const hexToRgb=(color:string)=>color.match(/\w\w/g)!.map(value=>parseInt(value,16));
+const packColor=(color:string)=>{const [r,g,b]=hexToRgb(color);return (r<<16)|(g<<8)|b};
+const mixColor=(a:string,b:string,amount:number)=>{const start=hexToRgb(a),end=hexToRgb(b);return (Math.round(start[0]+(end[0]-start[0])*amount)<<16)|(Math.round(start[1]+(end[1]-start[1])*amount)<<8)|Math.round(start[2]+(end[2]-start[2])*amount)};
+let sandColor = packColor(sandPalette[4]), activeGradient = -1, sandFlow = 4, pouring = false, sandX = SW / 2, sandY = 10;
 document.querySelector('#sand-colors')!.innerHTML = sandPalette.map((color,index)=>`<button style="--sand:${color}" data-color="${index}" aria-label="Choose sand color ${index+1}"></button>`).join('');
+document.querySelector('#gradient-colors')!.innerHTML = sandGradients.map((colors,index)=>`<button style="--sand:linear-gradient(135deg,${colors.join(',')})" data-gradient="${index}" aria-label="Choose animated gradient ${index+1}"></button>`).join('');
 document.querySelector<HTMLButtonElement>('[data-color="4"]')!.classList.add('active');
-document.querySelectorAll<HTMLButtonElement>('[data-color]').forEach(button=>button.addEventListener('click',()=>{sandColor=Number(button.dataset.color);document.querySelectorAll('[data-color]').forEach(item=>item.classList.remove('active'));button.classList.add('active')}));
+const clearSandSelection=()=>document.querySelectorAll('.sand-colors button').forEach(item=>item.classList.remove('active'));
+document.querySelectorAll<HTMLButtonElement>('[data-color]').forEach(button=>button.addEventListener('click',()=>{activeGradient=-1;sandColor=packColor(sandPalette[Number(button.dataset.color)]);clearSandSelection();button.classList.add('active')}));
+document.querySelectorAll<HTMLButtonElement>('[data-gradient]').forEach(button=>button.addEventListener('click',()=>{activeGradient=Number(button.dataset.gradient);clearSandSelection();button.classList.add('active')}));
 document.querySelector<HTMLInputElement>('#sand-flow')!.addEventListener('input',event=>sandFlow=Number((event.target as HTMLInputElement).value));
 const sandPosition=(event:PointerEvent)=>{const rect=sandCanvas.getBoundingClientRect();sandX=Math.floor((event.clientX-rect.left)/rect.width*SW);sandY=Math.floor((event.clientY-rect.top)/rect.height*SH)};
 sandCanvas.addEventListener('pointerdown',event=>{pouring=true;sandCanvas.setPointerCapture(event.pointerId);sandPosition(event)});
 sandCanvas.addEventListener('pointermove',event=>{if(pouring)sandPosition(event)});
 sandCanvas.addEventListener('pointerup',()=>pouring=false);
-const pourSand=()=>{if(!pouring)return;for(let i=0;i<sandFlow*2;i++){const x=Math.max(0,Math.min(SW-1,sandX+Math.floor((Math.random()-.5)*sandFlow*2)));const y=Math.max(0,Math.min(SH-1,sandY+Math.floor(Math.random()*3)));if(!sand[y*SW+x])sand[y*SW+x]=sandColor+1}};
-const moveSand=()=>{for(let y=SH-2;y>=0;y--){const reverse=Math.random()>.5;for(let step=0;step<SW;step++){const x=reverse?SW-1-step:step;const index=y*SW+x;if(!sand[index])continue;const below=index+SW;if(!sand[below]){sand[below]=sand[index];sand[index]=0;continue}const direction=Math.random()>.5?1:-1;const diagonal=below+direction;if(x+direction>=0&&x+direction<SW&&!sand[diagonal]){sand[diagonal]=sand[index];sand[index]=0}}}};
-const drawSand=()=>{const image=sandContext.createImageData(SW,SH);for(let i=0;i<sand.length;i++){const color=sandPalette[Math.max(0,sand[i]-1)];const rgb=color.match(/\w\w/g)!.map(value=>parseInt(value,16));const offset=i*4;image.data[offset]=rgb[0];image.data[offset+1]=rgb[1];image.data[offset+2]=rgb[2];image.data[offset+3]=sand[i]?255:0}sandContext.fillStyle='#f6f1e7';sandContext.fillRect(0,0,sandCanvas.width,sandCanvas.height);const buffer=document.createElement('canvas');buffer.width=SW;buffer.height=SH;buffer.getContext('2d')!.putImageData(image,0,0);sandContext.imageSmoothingEnabled=false;sandContext.drawImage(buffer,0,0,sandCanvas.width,sandCanvas.height)};
-const sandLoop=()=>{pourSand();moveSand();drawSand();requestAnimationFrame(sandLoop)};
+const productionColor=()=>{if(activeGradient<0)return sandColor;const colors=sandGradients[activeGradient];const cycle=(performance.now()/5000)%colors.length;const index=Math.floor(cycle);return mixColor(colors[index],colors[(index+1)%colors.length],cycle-index)};
+const pourSand=()=>{if(!pouring)return;const color=productionColor();for(let i=0;i<sandFlow*5;i++){const x=Math.max(0,Math.min(SW-1,sandX+Math.floor((Math.random()-.5)*sandFlow*3)));const y=Math.max(0,Math.min(SH-1,sandY+Math.floor(Math.random()*5)));if(!sand[y*SW+x])sand[y*SW+x]=color}};
+const moveSand=()=>{for(let y=SH-2;y>=0;y--){const reverse=Math.random()>.5;for(let step=0;step<SW;step++){const x=reverse?SW-1-step:step,index=y*SW+x,value=sand[index];if(!value)continue;const below=index+SW;if(!sand[below]){sand[below]=value;sand[index]=0;continue}const first=Math.random()>.5?1:-1;for(const direction of [first,-first]){const distance=Math.random()<.28?2:1,tx=x+direction*distance,target=below+direction*distance;if(tx>=0&&tx<SW&&!sand[target]){sand[target]=value;sand[index]=0;break}}}}};
+const sandBuffer=document.createElement('canvas');sandBuffer.width=SW;sandBuffer.height=SH;const sandBufferContext=sandBuffer.getContext('2d')!;
+const drawSand=()=>{const image=sandBufferContext.createImageData(SW,SH);for(let i=0;i<sand.length;i++){const color=sand[i],offset=i*4;image.data[offset]=(color>>16)&255;image.data[offset+1]=(color>>8)&255;image.data[offset+2]=color&255;image.data[offset+3]=color?255:0}sandContext.fillStyle='#f6f1e7';sandContext.fillRect(0,0,sandCanvas.width,sandCanvas.height);sandBufferContext.putImageData(image,0,0);sandContext.imageSmoothingEnabled=false;sandContext.drawImage(sandBuffer,0,0,sandCanvas.width,sandCanvas.height)};
+const sandLoop=()=>{pourSand();for(let pass=0;pass<4;pass++)moveSand();drawSand();requestAnimationFrame(sandLoop)};
 document.querySelector('#sand-clear')!.addEventListener('click',()=>sand.fill(0));
 document.querySelector('#sand-save')!.addEventListener('click',()=>{const link=document.createElement('a');link.download='my-sand-garden.png';link.href=sandCanvas.toDataURL('image/png');link.click()});
 sandLoop();
