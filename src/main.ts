@@ -37,10 +37,10 @@ const therapists = [
 ].map((therapist, index) => ({ ...therapist, image: therapistImages[index] }));
 
 const resources = [
-  { icon: '✦', title: 'Grounding & Calm', text: 'Simple practices to help you reconnect with the present moment.', tag: 'Coming soon' },
-  { icon: '◌', title: 'Reflection Tools', text: 'Gentle prompts and worksheets to support your therapeutic work.', tag: 'Coming soon' },
-  { icon: '☼', title: 'Wellness Library', text: 'Curated articles, books, podcasts, and supportive resources.', tag: 'Coming soon' },
-  { icon: '♡', title: 'Between Sessions', text: 'Ideas for caring for yourself and building on each session.', tag: 'Coming soon' },
+  { icon: '✦', title: 'Guided Breathing', text: 'Choose a calming breathing rhythm and follow its gentle visual guide.', tag: 'Open activity', href: '#breathing' },
+  { icon: '◌', title: 'Reflection Tools', text: 'Pause and name one feeling, one need, and one kind next step.', tag: 'Quick practice' },
+  { icon: '☼', title: 'Wellness Library', text: 'Start with sleep, movement, hydration, connection, and time outdoors.', tag: 'Wellness basics' },
+  { icon: '♡', title: 'Between Sessions', text: 'Choose one small supportive action to practice before your next session.', tag: 'Care ideas' },
 ];
 
 const affirmationFonts = ['Dancing Script', 'Ole', 'Pixelify Sans', 'Playfair Local', 'Shadows Into Light', 'Tangerine', 'Zeyada'];
@@ -125,7 +125,20 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <p>Return anytime you need a moment of reflection, reassurance, or practical support.</p>
       </div>
       <div class="resource-grid">
-        ${resources.map((item) => `<article class="resource-card reveal"><span class="card-icon">${item.icon}</span><span class="tag">${item.tag}</span><h3>${item.title}</h3><p>${item.text}</p><button disabled>Explore resource <span>→</span></button></article>`).join('')}
+        ${resources.map((item) => `<article class="resource-card reveal"><span class="card-icon">${item.icon}</span><span class="tag">${item.tag}</span><h3>${item.title}</h3><p>${item.text}</p>${item.href ? `<a href="${item.href}">Open activity <span>→</span></a>` : `<span class="resource-practice">Try this today</span>`}</article>`).join('')}
+      </div>
+    </section>
+
+    <section class="breathing-section page-view" data-page="breathing">
+      <div class="breathing-heading"><p class="eyebrow">Grounding & Calm</p><h2>Guided breathing</h2><p>Select an exercise, then let the animation guide your pace.</p></div>
+      <div class="breathing-options" id="breathing-options">
+        <button data-breath="box"><strong>Box Breathing</strong><span>4 · 4 · 4 · 4</span></button>
+        <button data-breath="calm"><strong>Calming Breath</strong><span>4 in · 6 out</span></button>
+        <button data-breath="reset"><strong>Gentle Reset</strong><span>3 · 3 · 5</span></button>
+      </div>
+      <div class="breathing-player">
+        <div class="breathing-visual" id="breathing-visual"><div class="breath-orb"></div><div class="box-path"><i></i><i></i><i></i></div></div>
+        <div class="breathing-guide"><p id="breath-name">Box Breathing</p><strong id="breath-prompt">Inhale</strong><span id="breath-count">4</span><button id="breath-toggle">Begin</button></div>
       </div>
     </section>
 
@@ -138,8 +151,10 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <p class="game-note">Swipe left or right to move, swipe up to rotate, and swipe down to settle the piece.</p>
       </div>
       <div class="leaf-game reveal">
-        <div class="game-top"><span>Leaf fall</span></div>
-        <div class="canvas-wrap"><button id="leaf-start">Restart</button><canvas id="leaf-tetris" width="300" height="600" aria-label="Leaf fall block game. Swipe to control pieces."></canvas><div class="game-message" id="game-message">Take a breath.<br><small>Tap restart when you're ready.</small></div></div>
+        <div class="leaf-game-layout">
+          <div><div class="game-top"><span>Leaf fall</span></div><div class="canvas-wrap"><button id="leaf-start">Restart</button><canvas id="leaf-tetris" width="300" height="600" aria-label="Leaf fall block game. Swipe to control pieces."></canvas><div class="game-message" id="game-message">Take a breath.<br><small>Tap restart when you're ready.</small></div></div></div>
+          <div class="mindfulness-jar"><h3>Mindfulness Jar</h3><canvas id="mindfulness-jar" width="220" height="600" aria-label="Bright blue mindfulness water jar"></canvas></div>
+        </div>
       </div>
     </section>
 
@@ -183,7 +198,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 
 const showPage = () => {
   const page = location.hash.slice(1) || 'home';
-  const validPage = ['home', 'resources', 'games', 'therapists', 'support'].includes(page) ? page : 'home';
+  const validPage = ['home', 'resources', 'breathing', 'games', 'therapists', 'support'].includes(page) ? page : 'home';
   document.querySelectorAll<HTMLElement>('.page-view').forEach((section) => {
     section.hidden = section.dataset.page !== validPage;
   });
@@ -207,6 +222,20 @@ const highlightAffirmations = () => {
 };
 highlightAffirmations();
 window.setInterval(highlightAffirmations, 3200);
+
+const breathingExercises={
+  box:{name:'Box Breathing',phases:[['Inhale',4],['Hold',4],['Exhale',4],['Hold',4]]},
+  calm:{name:'Calming Breath',phases:[['Inhale',4],['Exhale',6]]},
+  reset:{name:'Gentle Reset',phases:[['Inhale',3],['Hold',3],['Exhale',5]]},
+} as const;
+let breathType:keyof typeof breathingExercises='box',breathPhase=0,breathRemaining=4,breathTimer=0,breathing=false;
+const breathName=document.querySelector('#breath-name')!,breathPrompt=document.querySelector('#breath-prompt')!,breathCount=document.querySelector('#breath-count')!,breathToggle=document.querySelector<HTMLButtonElement>('#breath-toggle')!,breathingVisual=document.querySelector('#breathing-visual')!;
+const renderBreath=()=>{const exercise=breathingExercises[breathType],phase=exercise.phases[breathPhase];breathName.textContent=exercise.name;breathPrompt.textContent=phase[0];breathCount.textContent=String(breathRemaining);breathingVisual.className=`breathing-visual ${breathType} ${phase[0].toLowerCase()}`};
+const tickBreath=()=>{breathRemaining--;if(breathRemaining<=0){breathPhase=(breathPhase+1)%breathingExercises[breathType].phases.length;breathRemaining=breathingExercises[breathType].phases[breathPhase][1]}renderBreath()};
+document.querySelectorAll<HTMLButtonElement>('[data-breath]').forEach(button=>button.addEventListener('click',()=>{breathType=button.dataset.breath as keyof typeof breathingExercises;breathPhase=0;breathRemaining=breathingExercises[breathType].phases[0][1];document.querySelectorAll('[data-breath]').forEach(item=>item.classList.remove('active'));button.classList.add('active');renderBreath()}));
+document.querySelector<HTMLButtonElement>('[data-breath="box"]')!.classList.add('active');
+breathToggle.addEventListener('click',()=>{breathing=!breathing;breathToggle.textContent=breathing?'Pause':'Begin';clearInterval(breathTimer);if(breathing)breathTimer=window.setInterval(tickBreath,1000)});
+renderBreath();
 
 const observer = new IntersectionObserver((entries) => {
   entries.forEach((entry) => entry.isIntersecting && entry.target.classList.add('visible'));
@@ -240,7 +269,7 @@ const canvas = document.querySelector<HTMLCanvasElement>('#leaf-tetris')!;
 const context = canvas.getContext('2d')!;
 const COLS = 10, ROWS = 20, SIZE = 30;
 const leafColors = ['#000', '#79a37e', '#b8a46d', '#9c7063', '#507c59', '#d2a991', '#6d9475', '#c4be87'];
-const shapes = [[[1,1,1,1]],[[2,2],[2,2]],[[0,3,0],[3,3,3]],[[4,0,0],[4,4,4]],[[0,0,5],[5,5,5]],[[0,6,6],[6,6,0]],[[7,7,0],[0,7,7]]];
+const shapes = [[[1,1,1,1]],[[2,2],[2,2]],[[0,3,0],[3,3,3]],[[4,0,0],[4,4,4]],[[0,0,5],[5,5,5]],[[0,6,6],[6,6,0]],[[7,7,0],[0,7,7]],[[1,1,1],[0,1,0],[0,1,0]],[[2,0,2],[2,2,2]],[[3,3,0],[0,3,0],[0,3,3]],[[0,4,0],[4,4,4],[0,4,0]],[[5,5,5],[5,0,5]],[[6,6,0],[0,6,6],[0,0,6]]];
 let board = Array.from({length:ROWS},()=>Array(COLS).fill(0));
 let piece = {shape:shapes[0],x:3,y:0};
 let score=0, lines=0, lastDrop=0, running=false, animation=0;
@@ -249,7 +278,7 @@ const newPiece=()=>{const shape=shapes[Math.floor(Math.random()*shapes.length)];
 const drawLeaf=(x:number,y:number,value:number)=>{context.save();context.translate(x*SIZE+SIZE/2,y*SIZE+SIZE/2);context.rotate(((value%4)-1.5)*.18);context.fillStyle=leafColors[value];context.beginPath();context.moveTo(-10,10);context.bezierCurveTo(-15,-8,0,-15,11,-11);context.bezierCurveTo(14,2,6,14,-10,10);context.fill();context.strokeStyle='rgba(255,255,255,.55)';context.lineWidth=1.2;context.beginPath();context.moveTo(-8,9);context.lineTo(9,-9);context.stroke();context.restore()};
 const drawGame=()=>{context.clearRect(0,0,canvas.width,canvas.height);context.fillStyle='#f4f7f0';context.fillRect(0,0,canvas.width,canvas.height);context.strokeStyle='rgba(23,77,42,.06)';for(let x=1;x<COLS;x++){context.beginPath();context.moveTo(x*SIZE,0);context.lineTo(x*SIZE,canvas.height);context.stroke()}for(let y=1;y<ROWS;y++){context.beginPath();context.moveTo(0,y*SIZE);context.lineTo(canvas.width,y*SIZE);context.stroke()}board.forEach((row,y)=>row.forEach((value,x)=>value&&drawLeaf(x,y,value)));piece.shape.forEach((row,y)=>row.forEach((value,x)=>value&&drawLeaf(piece.x+x,piece.y+y,value)))};
 const updateStats=()=>{document.querySelector('#leaf-score')!.textContent=String(score);document.querySelector('#leaf-lines')!.textContent=String(lines);document.querySelector('#leaf-level')!.textContent=String(Math.floor(lines/8)+1)};
-const settle=()=>{piece.shape.forEach((row,y)=>row.forEach((value,x)=>{if(value)board[piece.y+y][piece.x+x]=value}));let cleared=0;board=board.filter(row=>{if(row.every(Boolean)){cleared++;return false}return true});while(board.length<ROWS)board.unshift(Array(COLS).fill(0));lines+=cleared;score+=[0,100,300,600,1000][cleared];updateStats();newPiece()};
+const settle=()=>{piece.shape.forEach((row,y)=>row.forEach((value,x)=>{if(value)board[piece.y+y][piece.x+x]=value}));addJarDrops(piece.shape.flat().filter(Boolean).length);let cleared=0;board=board.filter(row=>{if(row.every(Boolean)){cleared++;return false}return true});while(board.length<ROWS)board.unshift(Array(COLS).fill(0));lines+=cleared;score+=[0,100,300,600,1000][cleared];updateStats();newPiece()};
 const move=(dx:number)=>{const next={...piece,x:piece.x+dx};if(!collides(next))piece=next;drawGame()};
 const rotate=()=>{const shape=piece.shape[0].map((_,i)=>piece.shape.map(row=>row[i]).reverse());const next={...piece,shape};if(!collides(next))piece=next;drawGame()};
 const drop=()=>{const next={...piece,y:piece.y+1};if(collides(next))settle();else piece=next;drawGame()};
@@ -263,6 +292,13 @@ let swipeStartX=0,swipeStartY=0;
 canvas.addEventListener('pointerdown',event=>{swipeStartX=event.clientX;swipeStartY=event.clientY;canvas.setPointerCapture(event.pointerId)});
 canvas.addEventListener('pointerup',event=>{if(!running)return;const dx=event.clientX-swipeStartX,dy=event.clientY-swipeStartY;if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;if(Math.abs(dx)>Math.abs(dy))move(dx>0?1:-1);else if(dy>0)hardDrop();else rotate()});
 drawGame();
+
+const jarCanvas=document.querySelector<HTMLCanvasElement>('#mindfulness-jar')!,jarContext=jarCanvas.getContext('2d')!;
+const jarDrops:{x:number,y:number,speed:number,size:number}[]=[],jarRipples:{x:number,age:number}[]=[];
+let jarLevel=70;
+function addJarDrops(count:number){for(let i=0;i<count;i++)jarDrops.push({x:30+Math.random()*160,y:-Math.random()*120,speed:3+Math.random()*3,size:3+Math.random()*4})}
+const drawJar=()=>{jarContext.clearRect(0,0,jarCanvas.width,jarCanvas.height);jarLevel=Math.min(430,jarLevel+jarDrops.length*.002);const surface=jarCanvas.height-jarLevel;jarContext.save();jarContext.beginPath();jarContext.roundRect(8,8,204,584,30);jarContext.clip();const water=jarContext.createLinearGradient(0,surface,0,jarCanvas.height);water.addColorStop(0,'#35c8ff');water.addColorStop(1,'#087ee8');jarContext.fillStyle=water;jarContext.beginPath();jarContext.moveTo(0,surface);for(let x=0;x<=220;x+=5)jarContext.lineTo(x,surface+Math.sin(x*.055+performance.now()*.004)*4+jarRipples.reduce((wave,ripple)=>wave+Math.sin((x-ripple.x)*.12-ripple.age*.28)*Math.max(0,7-ripple.age*.12),0));jarContext.lineTo(220,600);jarContext.lineTo(0,600);jarContext.fill();jarDrops.forEach(drop=>{drop.y+=drop.speed;drop.speed+=.09;jarContext.fillStyle='#43d8ff';jarContext.beginPath();jarContext.ellipse(drop.x,drop.y,drop.size*.65,drop.size,0,0,Math.PI*2);jarContext.fill();if(drop.y>=surface){jarRipples.push({x:drop.x,age:0});drop.y=700}});for(let i=jarDrops.length-1;i>=0;i--)if(jarDrops[i].y>650)jarDrops.splice(i,1);jarRipples.forEach(ripple=>ripple.age++);for(let i=jarRipples.length-1;i>=0;i--)if(jarRipples[i].age>60)jarRipples.splice(i,1);jarContext.restore();jarContext.strokeStyle='#FDEA9D';jarContext.lineWidth=5;jarContext.beginPath();jarContext.roundRect(8,8,204,584,30);jarContext.stroke();requestAnimationFrame(drawJar)};
+drawJar();
 
 const sandCanvas = document.querySelector<HTMLCanvasElement>('#sand-canvas')!;
 const sandContext = sandCanvas.getContext('2d')!;
