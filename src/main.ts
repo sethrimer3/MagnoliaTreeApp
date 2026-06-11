@@ -66,6 +66,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <img src="./magnoliaTreeLogo.webp" alt="Magnolia Tree Counseling" />
     </a>
     <nav class="nav-right" aria-label="External navigation">
+      <a class="header-jar" href="#games" aria-label="Today's mindfulness jar"><span class="jar-icon">◡</span><strong data-jar-count>0</strong></a>
       <div class="audio-controls"><button id="audio-toggle" aria-label="Mute sounds">Sound on</button><input id="audio-volume" type="range" min="0" max="100" value="35" aria-label="Sound volume" /></div>
       <a href="${mainWebsite}" target="_blank" rel="noreferrer">Main website</a>
       <a class="nav-button" href="${bookingUrl}" target="_blank" rel="noreferrer">Book a session</a>
@@ -158,7 +159,12 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <section class="resource-activity page-view" data-page="between"><div class="activity-heading"><p class="eyebrow">Between Sessions</p><h2>One small step is enough.</h2><p>Choose a practice and mark it complete when it feels right.</p></div><div class="between-grid" id="between-grid">${['Write down one feeling','Practice a boundary','Notice one unhelpful thought','Do one comforting activity','Bring one question to therapy','Celebrate one small win'].map(item=>`<button data-between="${item}"><strong>${item}</strong><span>Tap to mark complete</span></button>`).join('')}</div></section>
     <section class="resource-activity page-view" data-page="journal"><div class="activity-heading"><p class="eyebrow">Private on-device journal</p><h2>Leave yourself a note.</h2><p>Entries stay in this browser on this device.</p></div><form id="journal-form" class="journal-form"><input id="journal-title" maxlength="60" placeholder="A short title" aria-label="Journal entry title"><textarea id="journal-entry" maxlength="1200" placeholder="What is on your mind?" required aria-label="Journal entry"></textarea><button>Save note</button></form><div id="journal-notes" class="journal-notes"></div></section>
 
-    <section class="games-section page-view" id="games" data-page="games">
+    <section class="game-hub page-view" id="games" data-page="games">
+      <div class="activity-heading"><p class="eyebrow">Mindfulness games</p><h2>Choose a quiet place to focus.</h2><p>Every mindful action adds a drop to today's jar. Your progress is saved on this device and begins fresh each day.</p></div>
+      <div class="game-hub-grid"><a href="#tetris"><span>Leaf Fall</span><small>Arrange falling leaves and find your flow.</small></a><a href="#sand"><span>Sand Garden</span><small>Pour color and let gravity create.</small></a><a href="#match"><span>Gentle Match</span><small>Match, clear, and settle.</small></a></div>
+    </section>
+
+    <section class="games-section page-view" data-page="tetris">
       <div class="games-copy reveal">
         <p class="eyebrow">Mindfulness games</p>
         <h2>Leaf by leaf,<br><em>find your flow.</em></h2>
@@ -174,7 +180,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </div>
     </section>
 
-    <section class="sand-section page-view" data-page="games">
+    <section class="sand-section page-view" data-page="sand">
       <div class="sand-heading reveal">
         <div><p class="eyebrow">Mindfulness games · Sand Garden</p><h2>Pour color.<br><em>Let gravity create.</em></h2></div>
         <p>Press and hold anywhere in the garden to pour a gentle stream of sand. Move slowly, layer colors, and watch each grain find its resting place.</p>
@@ -190,9 +196,9 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </div>
     </section>
 
-    <section class="match-section page-view" data-page="games">
+    <section class="match-section page-view" data-page="match">
       <div class="match-copy"><p class="eyebrow">Mindfulness games · Gentle Match</p><h2>Match, clear,<br><em>and settle.</em></h2><p>Select two neighboring pieces to swap them. Match three or more to clear a quiet little space.</p><div class="match-score">Calm points <strong id="match-score">0</strong></div><button id="match-reset">New garden</button></div>
-      <div class="match-card"><div class="match-board" id="match-board" aria-label="Gentle match-three game"></div></div>
+      <div class="match-play"><div class="match-card"><div class="match-feedback" id="match-feedback" aria-live="polite"></div><div class="match-board" id="match-board" aria-label="Gentle match-three game"></div></div><div class="mindfulness-jar match-jar"><h3>Today's Mindfulness Jar</h3><canvas id="match-mindfulness-jar" width="220" height="600" aria-label="Today's shared mindfulness water jar"></canvas></div></div>
     </section>
 
     <section class="support reveal page-view" id="support" data-page="support">
@@ -229,7 +235,7 @@ const fadeAudio=(audio:HTMLAudioElement,target:number,duration=1500)=>{const sta
 const scheduleLoop=(audio:HTMLAudioElement,path:string,other:HTMLAudioElement)=>{clearTimeout(ambienceTimer);const delay=Math.max(1000,(audio.duration-3)*1000);ambienceTimer=window.setTimeout(()=>{if(currentAmbience!==path)return;other.src=path;other.currentTime=0;other.play().catch(()=>{});fadeAudio(other,audioMuted?0:.2*masterVolume,2800);fadeAudio(audio,0,2800);scheduleLoop(other,path,audio)},delay)};
 const setAmbience=(path='')=>{if(currentAmbience===path)return;currentAmbience=path;clearTimeout(ambienceTimer);ambienceLayers.forEach(audio=>fadeAudio(audio,0,1300));if(!path||!audioUnlocked||audioMuted)return;const next=ambienceLayers.find(audio=>audio.paused)||ambienceLayers[0];next.src=path;next.currentTime=0;next.play().then(()=>{fadeAudio(next,.2*masterVolume,1800);next.addEventListener('loadedmetadata',()=>scheduleLoop(next,path,ambienceLayers.find(audio=>audio!==next)!),{once:true});if(next.duration)scheduleLoop(next,path,ambienceLayers.find(audio=>audio!==next)!)}).catch(()=>{})};
 const playSfx=(path:string,volume=.08)=>{if(!audioUnlocked||audioMuted)return;const audio=new Audio(path);audio.volume=volume*masterVolume*.45;audio.play().catch(()=>{})};
-const ambienceForPage=(page:string)=>page==='games'?audioPaths.games:(page==='home'||page==='breathing'?audioPaths.birds:'');
+const ambienceForPage=(page:string)=>['games','tetris','sand','match'].includes(page)?audioPaths.games:(page==='home'||page==='breathing'?audioPaths.birds:'');
 const unlockAudio=()=>{if(audioUnlocked)return;audioUnlocked=true;currentAmbience='';setAmbience(ambienceForPage(location.hash.slice(1)||'home'))};
 window.addEventListener('pointerdown',unlockAudio,{once:true});
 window.addEventListener('keydown',unlockAudio,{once:true});
@@ -240,12 +246,13 @@ audioVolume.addEventListener('input',()=>{masterVolume=Number(audioVolume.value)
 
 const showPage = () => {
   const page = location.hash.slice(1) || 'home';
-  const validPage = ['home', 'resources', 'breathing', 'grounding', 'wellness', 'between', 'journal', 'games', 'therapists', 'support'].includes(page) ? page : 'home';
+  const validPage = ['home', 'resources', 'breathing', 'grounding', 'wellness', 'between', 'journal', 'games', 'tetris', 'sand', 'match', 'therapists', 'support'].includes(page) ? page : 'home';
   document.querySelectorAll<HTMLElement>('.page-view').forEach((section) => {
     section.hidden = section.dataset.page !== validPage;
   });
   setAmbience(ambienceForPage(validPage));
   if(audioUnlocked)playSfx(audioPaths.page,.045);
+  if(validPage==='tetris')window.setTimeout(()=>{if(!running)startGame()},0);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 window.addEventListener('hashchange', showPage);
@@ -361,11 +368,17 @@ canvas.addEventListener('pointerdown',event=>{swipeStartX=event.clientX;swipeSta
 canvas.addEventListener('pointerup',event=>{if(!running)return;const dx=event.clientX-swipeStartX,dy=event.clientY-swipeStartY;if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;if(Math.abs(dx)>Math.abs(dy))move(dx>0?1:-1);else if(dy>0)hardDrop();else rotate()});
 drawGame();
 
-const jarCanvas=document.querySelector<HTMLCanvasElement>('#mindfulness-jar')!,jarContext=jarCanvas.getContext('2d')!;
+const todayKey=()=>new Date().toLocaleDateString('en-CA');
+type DailyMindfulness={date:string;drops:number};
+let dailyMindfulness=JSON.parse(localStorage.getItem('magnolia-daily-mindfulness')??'null') as DailyMindfulness|null;
+if(!dailyMindfulness||dailyMindfulness.date!==todayKey())dailyMindfulness={date:todayKey(),drops:0};
+const jarCanvases=[document.querySelector<HTMLCanvasElement>('#mindfulness-jar')!,document.querySelector<HTMLCanvasElement>('#match-mindfulness-jar')!];
+const jarContexts=jarCanvases.map(item=>item.getContext('2d')!);
 const jarDrops:{x:number,y:number,speed:number,size:number}[]=[],jarRipples:{x:number,age:number}[]=[];
-let jarLevel=70;
-function addJarDrops(count:number){for(let i=0;i<count;i++)jarDrops.push({x:30+Math.random()*160,y:-Math.random()*120,speed:3+Math.random()*3,size:3+Math.random()*4})}
-const drawJar=()=>{jarContext.clearRect(0,0,jarCanvas.width,jarCanvas.height);jarLevel=Math.min(430,jarLevel+jarDrops.length*.002);const surface=jarCanvas.height-jarLevel;jarContext.save();jarContext.beginPath();jarContext.roundRect(8,8,204,584,30);jarContext.clip();const water=jarContext.createLinearGradient(0,surface,0,jarCanvas.height);water.addColorStop(0,'#35c8ff');water.addColorStop(1,'#087ee8');jarContext.fillStyle=water;jarContext.beginPath();jarContext.moveTo(0,surface);for(let x=0;x<=220;x+=5)jarContext.lineTo(x,surface+Math.sin(x*.055+performance.now()*.004)*4+jarRipples.reduce((wave,ripple)=>wave+Math.sin((x-ripple.x)*.12-ripple.age*.28)*Math.max(0,7-ripple.age*.12),0));jarContext.lineTo(220,600);jarContext.lineTo(0,600);jarContext.fill();jarDrops.forEach(drop=>{drop.y+=drop.speed;drop.speed+=.09;jarContext.fillStyle='#43d8ff';jarContext.beginPath();jarContext.ellipse(drop.x,drop.y,drop.size*.65,drop.size,0,0,Math.PI*2);jarContext.fill();if(drop.y>=surface){jarRipples.push({x:drop.x,age:0});drop.y=700}});for(let i=jarDrops.length-1;i>=0;i--)if(jarDrops[i].y>650)jarDrops.splice(i,1);jarRipples.forEach(ripple=>ripple.age++);for(let i=jarRipples.length-1;i>=0;i--)if(jarRipples[i].age>60)jarRipples.splice(i,1);jarContext.restore();jarContext.strokeStyle='#FDEA9D';jarContext.lineWidth=5;jarContext.beginPath();jarContext.roundRect(8,8,204,584,30);jarContext.stroke();requestAnimationFrame(drawJar)};
+const updateJarLabels=()=>document.querySelectorAll<HTMLElement>('[data-jar-count]').forEach(item=>item.textContent=String(dailyMindfulness!.drops));
+function addJarDrops(count:number){dailyMindfulness!.drops+=count;localStorage.setItem('magnolia-daily-mindfulness',JSON.stringify(dailyMindfulness));updateJarLabels();for(let i=0;i<Math.min(count,24);i++)jarDrops.push({x:30+Math.random()*160,y:-Math.random()*120,speed:3+Math.random()*3,size:3+Math.random()*4})}
+const drawJar=()=>{const jarLevel=Math.min(500,70+dailyMindfulness!.drops*.7),surface=600-jarLevel;jarContexts.forEach(jarContext=>{jarContext.clearRect(0,0,220,600);jarContext.save();jarContext.beginPath();jarContext.roundRect(8,8,204,584,30);jarContext.clip();const water=jarContext.createLinearGradient(0,surface,0,600);water.addColorStop(0,'#35c8ff');water.addColorStop(1,'#087ee8');jarContext.fillStyle=water;jarContext.beginPath();jarContext.moveTo(0,surface);for(let x=0;x<=220;x+=5)jarContext.lineTo(x,surface+Math.sin(x*.055+performance.now()*.004)*4+jarRipples.reduce((wave,ripple)=>wave+Math.sin((x-ripple.x)*.12-ripple.age*.28)*Math.max(0,7-ripple.age*.12),0));jarContext.lineTo(220,600);jarContext.lineTo(0,600);jarContext.fill();jarDrops.forEach(drop=>{jarContext.fillStyle='#43d8ff';jarContext.beginPath();jarContext.ellipse(drop.x,drop.y,drop.size*.65,drop.size,0,0,Math.PI*2);jarContext.fill()});jarContext.restore();jarContext.strokeStyle='#FDEA9D';jarContext.lineWidth=5;jarContext.beginPath();jarContext.roundRect(8,8,204,584,30);jarContext.stroke()});jarDrops.forEach(drop=>{drop.y+=drop.speed;drop.speed+=.09;if(drop.y>=surface){jarRipples.push({x:drop.x,age:0});drop.y=700}});for(let i=jarDrops.length-1;i>=0;i--)if(jarDrops[i].y>650)jarDrops.splice(i,1);jarRipples.forEach(ripple=>ripple.age++);for(let i=jarRipples.length-1;i>=0;i--)if(jarRipples[i].age>60)jarRipples.splice(i,1);requestAnimationFrame(drawJar)};
+updateJarLabels();
 drawJar();
 
 const sandCanvas = document.querySelector<HTMLCanvasElement>('#sand-canvas')!;
@@ -407,9 +420,11 @@ const matchBoard=document.querySelector('#match-board')!,MATCH_SIZE=8,matchIcons
 let matchCells:number[]=[],selectedMatch=-1,matchScore=0;
 const findMatches=()=>{const found=new Set<number>();for(let row=0;row<MATCH_SIZE;row++)for(let col=0;col<MATCH_SIZE;col++){const index=row*MATCH_SIZE+col,value=matchCells[index];if(col<MATCH_SIZE-2&&value===matchCells[index+1]&&value===matchCells[index+2]){found.add(index);found.add(index+1);found.add(index+2)}if(row<MATCH_SIZE-2&&value===matchCells[index+MATCH_SIZE]&&value===matchCells[index+MATCH_SIZE*2]){found.add(index);found.add(index+MATCH_SIZE);found.add(index+MATCH_SIZE*2)}}return found};
 const refillMatches=()=>{for(let col=0;col<MATCH_SIZE;col++){const values=[];for(let row=MATCH_SIZE-1;row>=0;row--){const value=matchCells[row*MATCH_SIZE+col];if(value>=0)values.push(value)}for(let row=MATCH_SIZE-1;row>=0;row--)matchCells[row*MATCH_SIZE+col]=values[MATCH_SIZE-1-row]??Math.floor(Math.random()*matchIcons.length)}};
-const resolveMatches=()=>{const matches=findMatches();if(!matches.size)return false;matches.forEach(index=>matchCells[index]=-1);matchScore+=matches.size*10;document.querySelector('#match-score')!.textContent=String(matchScore);localStorage.setItem('magnolia-match-best',String(Math.max(matchScore,Number(localStorage.getItem('magnolia-match-best')??0))));playSfx(audioPaths.notes[Math.min(4,Math.floor(matches.size/3))],.045);refillMatches();window.setTimeout(()=>{renderMatches();resolveMatches()},180);return true};
-const renderMatches=()=>{matchBoard.innerHTML=matchCells.map((value,index)=>`<button class="match-piece piece-${value}${selectedMatch===index?' selected':''}" data-match="${index}" aria-label="Match piece">${matchIcons[value]}</button>`).join('')};
+let matchCombo=0,clearingMatches=new Set<number>();
+const showMatchFeedback=(text:string)=>{const feedback=document.querySelector('#match-feedback')!;feedback.textContent=text;feedback.classList.remove('show');requestAnimationFrame(()=>feedback.classList.add('show'))};
+const resolveMatches=()=>{const matches=findMatches();if(!matches.size){matchCombo=0;return false}matchCombo++;clearingMatches=matches;renderMatches();matchScore+=matches.size*10*matchCombo;document.querySelector('#match-score')!.textContent=String(matchScore);localStorage.setItem('magnolia-match-best',String(Math.max(matchScore,Number(localStorage.getItem('magnolia-match-best')??0))));addJarDrops(matches.size);showMatchFeedback(matchCombo>1?`${matchCombo}x calm combo!`:`+${matches.size*10} calm points`);playSfx(audioPaths.notes[Math.min(4,Math.floor(matches.size/3)+matchCombo-1)],.06);window.setTimeout(()=>{matches.forEach(index=>matchCells[index]=-1);refillMatches();clearingMatches=new Set();renderMatches();window.setTimeout(resolveMatches,260)},280);return true};
+const renderMatches=()=>{matchBoard.innerHTML=matchCells.map((value,index)=>`<button class="match-piece piece-${value}${selectedMatch===index?' selected':''}${clearingMatches.has(index)?' clearing':''}" data-match="${index}" aria-label="Match piece">${matchIcons[value]}</button>`).join('')};
 const resetMatches=()=>{matchScore=0;document.querySelector('#match-score')!.textContent='0';do{matchCells=Array.from({length:MATCH_SIZE*MATCH_SIZE},()=>Math.floor(Math.random()*matchIcons.length))}while(findMatches().size);selectedMatch=-1;renderMatches()};
-matchBoard.addEventListener('click',event=>{const button=(event.target as HTMLElement).closest<HTMLButtonElement>('[data-match]');if(!button)return;const index=Number(button.dataset.match);if(selectedMatch<0){selectedMatch=index;renderMatches();return}const adjacent=Math.abs(index-selectedMatch)===MATCH_SIZE||(Math.abs(index-selectedMatch)===1&&Math.floor(index/MATCH_SIZE)===Math.floor(selectedMatch/MATCH_SIZE));if(adjacent){[matchCells[index],matchCells[selectedMatch]]=[matchCells[selectedMatch],matchCells[index]];if(!resolveMatches())[matchCells[index],matchCells[selectedMatch]]=[matchCells[selectedMatch],matchCells[index]]}selectedMatch=-1;renderMatches()});
+matchBoard.addEventListener('click',event=>{if(clearingMatches.size)return;const button=(event.target as HTMLElement).closest<HTMLButtonElement>('[data-match]');if(!button)return;const index=Number(button.dataset.match);if(selectedMatch<0){selectedMatch=index;renderMatches();return}const adjacent=Math.abs(index-selectedMatch)===MATCH_SIZE||(Math.abs(index-selectedMatch)===1&&Math.floor(index/MATCH_SIZE)===Math.floor(selectedMatch/MATCH_SIZE));if(adjacent){[matchCells[index],matchCells[selectedMatch]]=[matchCells[selectedMatch],matchCells[index]];matchBoard.classList.add('swapping');window.setTimeout(()=>matchBoard.classList.remove('swapping'),220);if(!resolveMatches()){[matchCells[index],matchCells[selectedMatch]]=[matchCells[selectedMatch],matchCells[index]];showMatchFeedback('Try another pair')}}selectedMatch=-1;renderMatches()});
 document.querySelector('#match-reset')!.addEventListener('click',resetMatches);
 resetMatches();
